@@ -3,7 +3,7 @@
     <!-- Header -->
     <header class="header flex justify-between items-center p-6 w-full max-w-6xl mx-auto">
       <NuxtLink to="/dashboard">
-        <img src="/logo-unicordoba.png" alt="Logo Universidad de Córdoba" class="header-logo" />
+        <img src="/logo-git.png" alt="Git Logo" class="header-logo" style="max-height: 50px; width: auto;" />
       </NuxtLink>
       <div class="header-title text-xl font-medium">Contenido del Módulo</div>
     </header>
@@ -34,8 +34,8 @@
               <h2 class="text-2xl font-bold mb-4">{{ content.title }}</h2>
               
               <!-- Texto -->
-              <div v-if="content.type === 'text'" class="text-content">
-                <p class="whitespace-pre-wrap break-all w-full">{{ content.text }}</p>
+              <div v-if="content.type === 'text'" class="text-content w-full">
+                <div class="markdown-body" v-html="marked.parse(content.text)"></div>
               </div>
               
               <!-- Imagen -->
@@ -43,12 +43,24 @@
                 <img :src="content.imageUrl" :alt="content.title" class="rounded-lg shadow-lg max-w-full mx-auto" />
               </div>
               
-              <!-- Video -->
+              <!-- Video Subido -->
               <div v-else-if="content.type === 'video'" class="media-content">
-                <video controls class="rounded-lg shadow-lg max-w-full w-full">
-                  <source :src="content.videoUrl" type="video/mp4" />
+                <video controls preload="metadata" class="rounded-lg shadow-lg max-w-full w-full">
+                  <source :src="content.videoUrl + '#t=0.001'" type="video/mp4" />
                   Tu navegador no soporta el reproductor de video.
                 </video>
+              </div>
+
+              <!-- Video YouTube -->
+              <div v-else-if="content.type === 'youtube'" class="media-content youtube-container">
+                <iframe 
+                  class="rounded-lg shadow-lg"
+                  :src="content.youtubeUrl" 
+                  title="YouTube video player" 
+                  frameborder="0" 
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                  allowfullscreen>
+                </iframe>
               </div>
 
             </div>
@@ -68,15 +80,31 @@
           <p class="mb-8 text-secondary">Lee cuidadosamente cada pregunta y selecciona la respuesta correcta.</p>
 
           <form @submit.prevent="submitEvaluation">
-            <div v-for="(activity, index) in moduleData.activities" :key="activity._id" class="mb-8 p-6 bg-gray-50 border rounded-lg">
-              <h3 class="text-lg font-bold mb-4">{{ index + 1 }}. {{ activity.question }}</h3>
+            <div v-for="(activity, index) in moduleData.activities" :key="activity._id" class="mb-8 p-6 bg-[#161b22] border border-[#30363d] rounded-lg">
               
-              <div class="flex flex-col gap-3">
-                <label v-for="opt in activity.options" :key="opt._id" class="flex items-center gap-3 p-3 bg-white border rounded cursor-pointer hover:bg-gray-100 transition-colors">
-                  <input type="radio" :name="'question-' + activity._id" :value="opt._id" v-model="answers[activity._id]" class="w-5 h-5 cursor-pointer text-primary" required />
-                  <span>{{ opt.text }}</span>
-                </label>
+              <!-- Opción Múltiple -->
+              <div v-if="!activity.type || activity.type === 'multiple_choice'">
+                <h3 class="text-lg font-bold mb-4">{{ index + 1 }}. {{ activity.question }}</h3>
+                <div class="flex flex-col gap-3">
+                  <label v-for="opt in activity.options" :key="opt._id" class="flex items-center gap-3 p-3 bg-[#0d1117] border border-[#30363d] rounded cursor-pointer hover:border-[#ff6600] transition-colors">
+                    <input type="radio" :name="'question-' + activity._id" :value="opt._id" v-model="answers[activity._id]" class="w-5 h-5 cursor-pointer accent-[#ff6600]" required />
+                    <span class="text-white">{{ opt.text }}</span>
+                  </label>
+                </div>
               </div>
+
+              <!-- Arrastrar y Soltar -->
+              <div v-else-if="activity.type === 'drag_drop'">
+                <h3 class="text-lg font-bold mb-4 text-[#ff6600]">Actividad {{ index + 1 }}: Arrastrar y Soltar</h3>
+                <DragAndDropActivity :activity="activity" @complete="markActivityComplete(activity._id, 'drag_drop')" />
+              </div>
+
+              <!-- Simulador Git -->
+              <div v-else-if="activity.type === 'simulator'">
+                <h3 class="text-lg font-bold mb-4 text-[#ff6600]">Actividad {{ index + 1 }}: Simulador Git</h3>
+                <GitSimulatorActivity :activity="activity" @complete="markActivityComplete(activity._id, 'simulator')" />
+              </div>
+              
             </div>
 
             <div v-if="evalMessage" :class="['p-4 rounded-lg mb-4 font-bold text-center', isEvalError ? 'error-alert' : 'success-alert']">
@@ -108,21 +136,44 @@
           <NuxtLink to="/dashboard" class="btn-primary inline-block py-3 px-8">Volver al Dashboard</NuxtLink>
         </div>
       </div>
-      <!-- Modal de Logro -->
-      <div v-if="showAchievementModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-xl shadow-2xl p-8 max-w-sm w-full text-center transform transition-all scale-105">
-          <div class="text-7xl mb-4 animate-bounce">{{ unlockedAchievementData.icon }}</div>
-          <h2 class="text-2xl font-bold text-yellow-600 mb-2">¡Logro Desbloqueado!</h2>
-          <h3 class="text-xl font-bold mb-4">{{ unlockedAchievementData.title }}</h3>
-          <p class="text-secondary mb-8">{{ unlockedAchievementData.description }}</p>
-          <button @click="closeAchievementModal" class="btn-primary w-full py-3">¡Genial!</button>
-        </div>
-      </div>
     </main>
 
     <!-- Footer -->
-    <footer class="footer-global w-full text-center">
-      <p>Diseño y Desarrollo de Software Educativo III<br />Departamento de Informática Educativa<br />Universidad de Córdoba<br />2026</p>
+    <footer class="footer-global" style="width: 100%; padding: 1.5rem 1rem; margin-top: auto; border-top: 1px solid #30363d; background-color: #0d1117; color: #8b949e; font-size: 0.85rem; line-height: 1.6;">
+      <div style="max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; align-items: start;">
+        
+        <!-- Columna 1: Logo -->
+        <div style="display: flex; justify-content: center; align-items: flex-start; padding-top: 0.25rem;">
+          <img src="/logo-unicordoba.png" alt="Logo Universidad de Córdoba" style="max-width: 80px; height: auto; opacity: 0.9;" />
+        </div>
+
+        <!-- Columna 2: Institución -->
+        <div style="text-align: left;">
+          <h4 style="color: #c9d1d9; font-weight: bold; margin-bottom: 0.5rem; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em;">Información Académica</h4>
+          <p style="margin: 0;">
+            Diseño y Desarrollo de Software Educativo III<br />
+            Departamento de Informática Educativa<br />
+            Licenciatura en Informática<br />
+            Facultad de Educación y Ciencias Humanas<br />
+            Universidad de Córdoba<br />
+            <span style="display: inline-block; margin-top: 0.25rem;"><strong>Año:</strong> 2026</span><br />
+            <strong>Metodología:</strong> MODESEC
+          </p>
+        </div>
+
+        <!-- Columna 3: Créditos -->
+        <div style="text-align: left;">
+          <h4 style="color: #c9d1d9; font-weight: bold; margin-bottom: 0.5rem; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em;">Equipo de Desarrollo</h4>
+          <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.25rem;">
+            <li><strong style="color: #e6edf3;">Mauro Andrés Monterroza Sevilla:</strong> Product Owner & Developer</li>
+            <li><strong style="color: #e6edf3;">Maria Claudia Oquendo Méndez:</strong> Lead UI Designer</li>
+            <li><strong style="color: #e6edf3;">Alexander Domínguez Niño:</strong> UX Designer & Developer</li>
+            <li><strong style="color: #e6edf3;">Isacar Torreglosa:</strong> Documentation</li>
+            <li><strong style="color: #e6edf3;">Ph.D. Raúl Emiro Toscano Miranda:</strong> Academic Tutor</li>
+          </ul>
+        </div>
+
+      </div>
     </footer>
   </div>
 </template>
@@ -132,6 +183,9 @@ import { ref, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { useApi } from '~/composables/useApi';
 import { useCookie } from '#app';
+import DragAndDropActivity from '~/components/DragAndDropActivity.vue';
+import GitSimulatorActivity from '~/components/GitSimulatorActivity.vue';
+import { marked } from 'marked';
 
 const route = useRoute();
 const api = useApi();
@@ -149,13 +203,15 @@ const evalMessage = ref('');
 const isEvalError = ref(false);
 const evalResult = ref(null);
 
-const showAchievementModal = ref(false);
-const unlockedAchievementData = ref(null);
-
 onMounted(async () => {
   try {
     const data = await api.getModuleStudy(courseId, moduleId);
     moduleData.value = data;
+    
+    // Si viene por URL directo a la evaluación
+    if (route.query.phase === 'evaluation') {
+      activePhase.value = 'evaluation';
+    }
   } catch (error) {
     console.error('Error fetching module:', error);
   }
@@ -164,6 +220,14 @@ onMounted(async () => {
 const startEvaluation = () => {
   activePhase.value = 'evaluation';
   window.scrollTo(0, 0);
+};
+
+const markActivityComplete = (activityId, type) => {
+  // Reasignar el objeto para forzar la reactividad en Vue y asegurar que el botón se habilite
+  answers.value = {
+    ...answers.value,
+    [activityId]: `completed_${type}`
+  };
 };
 
 const submitEvaluation = async () => {
@@ -183,14 +247,6 @@ const submitEvaluation = async () => {
     evalResult.value = result;
     activePhase.value = 'feedback';
     window.scrollTo(0, 0);
-
-    // Activar modal de logro si viene en la respuesta
-    if (result.achievementUnlocked) {
-      unlockedAchievementData.value = result.achievementUnlocked;
-      setTimeout(() => {
-        showAchievementModal.value = true;
-      }, 500); // Pequeño retraso para efecto sorpresa
-    }
     
   } catch(error) {
     isEvalError.value = true;
@@ -200,9 +256,6 @@ const submitEvaluation = async () => {
   }
 };
 
-const closeAchievementModal = () => {
-  showAchievementModal.value = false;
-};
 </script>
 
 <style scoped>
@@ -250,8 +303,87 @@ const closeAchievementModal = () => {
   border-radius: 12px;
   border: 1px solid var(--border-color);
 }
-.text-content p {
+.text-content {
+  width: 100%;
+}
+
+/* YouTube Responsive Container */
+.youtube-container {
+  position: relative;
+  padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
+  height: 0;
+  overflow: hidden;
+  border-radius: 0.5rem;
+}
+.youtube-container iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Markdown Styles for v-html */
+:deep(.markdown-body) {
   color: var(--text-secondary);
   font-size: 1.1rem;
+  line-height: 1.6;
+}
+:deep(.markdown-body p) {
+  margin-bottom: 1rem;
+}
+:deep(.markdown-body h1), :deep(.markdown-body h2), :deep(.markdown-body h3) {
+  color: var(--text-primary);
+  font-weight: bold;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+:deep(.markdown-body h1) { font-size: 1.8rem; }
+:deep(.markdown-body h2) { font-size: 1.5rem; }
+:deep(.markdown-body h3) { font-size: 1.25rem; }
+:deep(.markdown-body ul) {
+  list-style-type: disc;
+  padding-left: 2rem;
+  margin-bottom: 1rem;
+}
+:deep(.markdown-body ol) {
+  list-style-type: decimal;
+  padding-left: 2rem;
+  margin-bottom: 1rem;
+}
+:deep(.markdown-body strong) {
+  color: #ffffff;
+  font-weight: 700;
+}
+:deep(.markdown-body em) {
+  font-style: italic;
+}
+:deep(.markdown-body code) {
+  background-color: #30363d;
+  color: #ff6600;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 0.9em;
+}
+:deep(.markdown-body pre) {
+  background-color: #0d1117;
+  border: 1px solid #30363d;
+  padding: 1rem;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin-bottom: 1rem;
+}
+:deep(.markdown-body pre code) {
+  background-color: transparent;
+  padding: 0;
+  color: #e6edf3;
+}
+:deep(.markdown-body blockquote) {
+  border-left: 4px solid #ff6600;
+  padding-left: 1rem;
+  margin-left: 0;
+  color: #8b949e;
+  font-style: italic;
 }
 </style>

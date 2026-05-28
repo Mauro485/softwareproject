@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 const contentSchema = new mongoose.Schema({
   type: {
     type: String,
-    enum: ['text', 'image', 'video'],
+    enum: ['text', 'image', 'video', 'youtube'],
     required: true
   },
   title: {
@@ -13,7 +13,8 @@ const contentSchema = new mongoose.Schema({
   },
   text: String,
   imageUrl: String,
-  videoUrl: String
+  videoUrl: String,
+  youtubeUrl: String
 });
 
 // Schema for activity options
@@ -28,8 +29,19 @@ const optionSchema = new mongoose.Schema({
   }
 });
 
+// Schema for Drag and Drop pairs
+const dragDropPairSchema = new mongoose.Schema({
+  draggable: { type: String, required: true },
+  target: { type: String, required: true }
+});
+
 // Schema for activities within modules
 const activitySchema = new mongoose.Schema({
+  type: {
+    type: String,
+    enum: ['multiple_choice', 'drag_drop', 'simulator'],
+    default: 'multiple_choice'
+  },
   question: {
     type: String,
     required: true
@@ -38,7 +50,17 @@ const activitySchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  options: [optionSchema]
+  // Fields for multiple choice
+  options: [optionSchema],
+  // Fields for drag and drop
+  dragDropPairs: [dragDropPairSchema],
+  // Fields for simulator
+  simulatorMode: { 
+    type: String, 
+    enum: ['exact_command', 'create_repo', 'make_commit'],
+    default: 'exact_command' 
+  },
+  simulatorExpectedCommand: { type: String }
 });
 
 // Schema for modules within courses

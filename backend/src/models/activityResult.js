@@ -20,8 +20,7 @@ const activityResultSchema = new mongoose.Schema({
     required: true
   },
   option: {
-    type: mongoose.Schema.Types.ObjectId,
-    required: true
+    type: mongoose.Schema.Types.ObjectId
   },
   isCorrect: {
     type: Boolean,

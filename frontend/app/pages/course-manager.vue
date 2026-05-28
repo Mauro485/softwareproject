@@ -2,7 +2,7 @@
   <div class="page-container">
     <header class="header flex justify-between items-center p-6 w-full max-w-6xl mx-auto">
       <NuxtLink to="/dashboard">
-        <img src="/logo-unicordoba.png" alt="Logo Universidad de Córdoba" class="header-logo" />
+        <img src="/logo-git.png" alt="Git Logo" class="header-logo" style="max-height: 50px; width: auto;" />
       </NuxtLink>
       <div class="header-title text-xl font-medium">Gestor de Contenidos</div>
     </header>
@@ -125,7 +125,12 @@
             </div>
 
             <div class="form-group mb-2">
-              <h3 class="text-sm font-bold mb-2 text-secondary uppercase">Video (MP4)</h3>
+              <h3 class="text-sm font-bold mb-2 text-secondary uppercase">URL de Video (YouTube)</h3>
+              <input type="text" v-model="module.youtubeUrl" class="input-form w-full" placeholder="Ej. https://www.youtube.com/watch?v=..." />
+            </div>
+
+            <div class="form-group mb-2">
+              <h3 class="text-sm font-bold mb-2 text-secondary uppercase">O Video (MP4 Subido)</h3>
               <input type="file" accept="video/mp4,video/webm" @change="handleVideoChange" class="input-form w-full bg-[#161b22] text-sm file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-bold file:bg-[#30363d] file:text-white hover:file:bg-[#ff6600] transition-colors" />
             </div>
 
@@ -146,7 +151,16 @@
             </div>
 
             <div class="form-group mb-2">
-              <h3 class="text-sm font-bold mb-2 text-secondary uppercase">Enunciado de la Pregunta</h3>
+              <h3 class="text-sm font-bold mb-2 text-secondary uppercase">Tipo de Actividad</h3>
+              <select v-model="activity.type" class="input-form w-full bg-surface-color">
+                <option value="multiple_choice">Opción Múltiple</option>
+                <option value="drag_drop">Arrastrar y Soltar</option>
+                <option value="simulator">Simulador Git</option>
+              </select>
+            </div>
+
+            <div class="form-group mb-2">
+              <h3 class="text-sm font-bold mb-2 text-secondary uppercase">Instrucción o Enunciado</h3>
               <textarea v-model="activity.question" class="input-form w-full" rows="2" placeholder="Ej. ¿Qué comando se usa para clonar un repositorio?"></textarea>
             </div>
 
@@ -159,28 +173,78 @@
               </select>
             </div>
 
-            <hr class="my-2 border-[#30363d]" />
-            <div class="flex justify-between items-center mb-2">
-              <h3 class="text-lg font-bold">Opciones de Respuesta</h3>
-              <button type="button" @click="addOption" v-if="activity.options.length < 4" class="text-sm font-bold hover:underline" style="color: var(--primary-color)">
-                + Añadir Opción
-              </button>
-            </div>
-            
-            <p class="text-xs text-secondary mb-4">Selecciona el botón circular para marcar la respuesta correcta.</p>
+            <!-- Múltiple Opción -->
+            <div v-if="activity.type === 'multiple_choice'">
+              <hr class="my-2 border-[#30363d]" />
+              <div class="flex justify-between items-center mb-2">
+                <h3 class="text-lg font-bold">Opciones de Respuesta</h3>
+                <button type="button" @click="addOption" v-if="activity.options.length < 4" class="text-sm font-bold hover:underline" style="color: var(--primary-color)">
+                  + Añadir Opción
+                </button>
+              </div>
+              
+              <p class="text-xs text-secondary mb-4">Selecciona el botón circular para marcar la respuesta correcta.</p>
 
-            <div v-for="(opt, index) in activity.options" :key="index" class="flex items-center gap-3 mb-3">
-              <input 
-                type="radio" 
-                name="correctOption" 
-                :checked="opt.isCorrect" 
-                @change="setCorrectOption(index)"
-                class="w-5 h-5 cursor-pointer accent-[#ff6600]"
-              />
-              <input type="text" v-model="opt.text" class="input-form flex-grow" :placeholder="'Opción ' + (index + 1)" />
-              <button type="button" @click="removeOption(index)" v-if="activity.options.length > 2" class="text-red-500 font-bold hover:underline px-2">
-                X
-              </button>
+              <div v-for="(opt, index) in activity.options" :key="index" class="flex items-center gap-3 mb-3">
+                <input 
+                  type="radio" 
+                  name="correctOption" 
+                  :checked="opt.isCorrect" 
+                  @change="setCorrectOption(index)"
+                  class="w-5 h-5 cursor-pointer accent-[#ff6600]"
+                />
+                <input type="text" v-model="opt.text" class="input-form flex-grow" :placeholder="'Opción ' + (index + 1)" />
+                <button type="button" @click="removeOption(index)" v-if="activity.options.length > 2" class="text-red-500 font-bold hover:underline px-2">
+                  X
+                </button>
+              </div>
+            </div>
+
+            <!-- Arrastrar y Soltar -->
+            <div v-if="activity.type === 'drag_drop'">
+              <hr class="my-2 border-[#30363d]" />
+              <div class="flex justify-between items-center mb-2">
+                <h3 class="text-lg font-bold">Pares a Relacionar</h3>
+                <button type="button" @click="addDragDropPair" v-if="activity.dragDropPairs.length < 6" class="text-sm font-bold hover:underline" style="color: var(--primary-color)">
+                  + Añadir Par
+                </button>
+              </div>
+              
+              <p class="text-xs text-secondary mb-4">Ejemplo: Elemento Arrastrable = "git commit", Elemento Destino = "Guarda cambios localmente".</p>
+
+              <div v-for="(pair, index) in activity.dragDropPairs" :key="'pair-'+index" class="flex items-center gap-3 mb-3">
+                <input type="text" v-model="pair.draggable" class="input-form flex-grow" placeholder="Arrastrable (Ej: Comando)" />
+                <span class="text-secondary font-bold">-></span>
+                <input type="text" v-model="pair.target" class="input-form flex-grow" placeholder="Destino (Ej: Definición)" />
+                <button type="button" @click="removeDragDropPair(index)" v-if="activity.dragDropPairs.length > 2" class="text-red-500 font-bold hover:underline px-2">
+                  X
+                </button>
+              </div>
+            </div>
+
+            <!-- Simulador Git -->
+            <div v-if="activity.type === 'simulator'">
+              <hr class="my-2 border-[#30363d]" />
+              <div class="flex justify-between items-center mb-2">
+                <h3 class="text-lg font-bold">Configuración del Simulador</h3>
+              </div>
+              
+              <div class="form-group mb-4">
+                <h3 class="text-sm font-bold mb-2 text-secondary uppercase">Objetivo de la Simulación</h3>
+                <select v-model="activity.simulatorMode" class="input-form w-full bg-surface-color">
+                  <option value="exact_command">Comando Específico</option>
+                  <option value="create_repo">Crear Repositorio (git init)</option>
+                  <option value="make_commit">Hacer un Commit (Avanzado)</option>
+                </select>
+                <p class="text-xs text-secondary mt-1" v-if="activity.simulatorMode === 'exact_command'">El estudiante deberá ingresar exactamente el comando que configures.</p>
+                <p class="text-xs text-secondary mt-1" v-if="activity.simulatorMode === 'create_repo'">El estudiante deberá inicializar un repositorio vacío.</p>
+                <p class="text-xs text-secondary mt-1" v-if="activity.simulatorMode === 'make_commit'">El estudiante deberá completar un ciclo de commit.</p>
+              </div>
+
+              <div class="form-group mb-2" v-if="activity.simulatorMode === 'exact_command'">
+                <h3 class="text-sm font-bold mb-2 text-secondary uppercase">Comando Esperado</h3>
+                <input type="text" v-model="activity.simulatorExpectedCommand" class="input-form w-full" placeholder="Ej. git push" />
+              </div>
             </div>
 
             <button type="submit" class="btn-primary w-full mt-8" :disabled="isActivityLoading">
@@ -192,8 +256,41 @@
       </div>
     </main>
 
-    <footer class="footer-global w-full text-center">
-      <p>Diseño y Desarrollo de Software Educativo III<br />Departamento de Informática Educativa<br />Universidad de Córdoba<br />2026</p>
+    <footer class="footer-global" style="width: 100%; padding: 1.5rem 1rem; margin-top: auto; border-top: 1px solid #30363d; background-color: #0d1117; color: #8b949e; font-size: 0.85rem; line-height: 1.6;">
+      <div style="max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; align-items: start;">
+        
+        <!-- Columna 1: Logo -->
+        <div style="display: flex; justify-content: center; align-items: flex-start; padding-top: 0.25rem;">
+          <img src="/logo-unicordoba.png" alt="Logo Universidad de Córdoba" style="max-width: 80px; height: auto; opacity: 0.9;" />
+        </div>
+
+        <!-- Columna 2: Institución -->
+        <div style="text-align: left;">
+          <h4 style="color: #c9d1d9; font-weight: bold; margin-bottom: 0.5rem; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em;">Información Académica</h4>
+          <p style="margin: 0;">
+            Diseño y Desarrollo de Software Educativo III<br />
+            Departamento de Informática Educativa<br />
+            Licenciatura en Informática<br />
+            Facultad de Educación y Ciencias Humanas<br />
+            Universidad de Córdoba<br />
+            <span style="display: inline-block; margin-top: 0.25rem;"><strong>Año:</strong> 2026</span><br />
+            <strong>Metodología:</strong> MODESEC
+          </p>
+        </div>
+
+        <!-- Columna 3: Créditos -->
+        <div style="text-align: left;">
+          <h4 style="color: #c9d1d9; font-weight: bold; margin-bottom: 0.5rem; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em;">Equipo de Desarrollo</h4>
+          <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.25rem;">
+            <li><strong style="color: #e6edf3;">Mauro Andrés Monterroza Sevilla:</strong> Product Owner & Developer</li>
+            <li><strong style="color: #e6edf3;">Maria Claudia Oquendo Méndez:</strong> Lead UI Designer</li>
+            <li><strong style="color: #e6edf3;">Alexander Domínguez Niño:</strong> UX Designer & Developer</li>
+            <li><strong style="color: #e6edf3;">Isacar Torreglosa:</strong> Documentation</li>
+            <li><strong style="color: #e6edf3;">Ph.D. Raúl Emiro Toscano Miranda:</strong> Academic Tutor</li>
+          </ul>
+        </div>
+
+      </div>
     </footer>
   </div>
 </template>
@@ -244,12 +341,19 @@ const handleVideoChange = (event) => {
 
 // Variables Formulario Evaluación
 const activity = ref({
+  type: 'multiple_choice',
   question: '',
   difficulty: 'básico',
   options: [
     { text: '', isCorrect: true },
     { text: '', isCorrect: false }
-  ]
+  ],
+  dragDropPairs: [
+    { draggable: '', target: '' },
+    { draggable: '', target: '' }
+  ],
+  simulatorMode: 'exact_command',
+  simulatorExpectedCommand: ''
 });
 const isActivityLoading = ref(false);
 const activityMessage = ref('');
@@ -274,6 +378,18 @@ const setCorrectOption = (index) => {
   activity.value.options.forEach((opt, i) => {
     opt.isCorrect = i === index;
   });
+};
+
+const addDragDropPair = () => {
+  if (activity.value.dragDropPairs.length < 6) {
+    activity.value.dragDropPairs.push({ draggable: '', target: '' });
+  }
+};
+
+const removeDragDropPair = (index) => {
+  if (activity.value.dragDropPairs.length > 2) {
+    activity.value.dragDropPairs.splice(index, 1);
+  }
 };
 
 const loadCourseData = async (id) => {
@@ -342,7 +458,7 @@ const startNewModule = () => {
   isEditModuleMode.value = false;
   createdModuleId.value = null;
   activeTab.value = 'material';
-  module.value = { title: '', description: '', order: existingModules.value.length + 1, textContent: '' };
+  module.value = { title: '', description: '', order: existingModules.value.length + 1, textContent: '', youtubeUrl: '' };
   moduleMessage.value = '';
 };
 
@@ -353,16 +469,20 @@ const loadModuleForEdit = (modData) => {
   activeTab.value = 'material';
   
   let txt = '';
+  let ytUrl = '';
   if (modData.contents && modData.contents.length > 0) {
     const textObj = modData.contents.find(c => c.type === 'text');
     if (textObj) txt = textObj.text;
+    const ytObj = modData.contents.find(c => c.type === 'youtube');
+    if (ytObj) ytUrl = ytObj.youtubeUrl;
   }
 
   module.value = { 
     title: modData.title, 
     description: modData.description, 
     order: modData.order, 
-    textContent: txt 
+    textContent: txt,
+    youtubeUrl: ytUrl
   };
   moduleMessage.value = '';
 };
@@ -400,7 +520,8 @@ const handleSaveModule = async () => {
       order: module.value.order,
       textContent: module.value.textContent,
       imageUrl: finalImageUrl,
-      videoUrl: finalVideoUrl
+      videoUrl: finalVideoUrl,
+      youtubeUrl: module.value.youtubeUrl
     };
 
     let response;
@@ -452,25 +573,63 @@ const handleCreateActivity = async () => {
    activityMessage.value = '';
    isActivityError.value = false;
 
-   const emptyOptions = activity.value.options.some(opt => !opt.text.trim());
-   if (!activity.value.question.trim() || emptyOptions) {
+   if (!activity.value.question.trim()) {
      isActivityError.value = true;
-     activityMessage.value = 'Completa el enunciado y todas las opciones.';
+     activityMessage.value = 'Completa el enunciado de la pregunta.';
      return;
+   }
+
+   if (activity.value.type === 'multiple_choice') {
+     const emptyOptions = activity.value.options.some(opt => !opt.text.trim());
+     if (emptyOptions) {
+       isActivityError.value = true;
+       activityMessage.value = 'Completa todas las opciones de respuesta.';
+       return;
+     }
+   } else if (activity.value.type === 'drag_drop') {
+     const emptyPairs = activity.value.dragDropPairs.some(pair => !pair.draggable.trim() || !pair.target.trim());
+     if (emptyPairs) {
+       isActivityError.value = true;
+       activityMessage.value = 'Completa todos los elementos a emparejar.';
+       return;
+     }
+   } else if (activity.value.type === 'simulator') {
+     if (activity.value.simulatorMode === 'exact_command' && (!activity.value.simulatorExpectedCommand || !activity.value.simulatorExpectedCommand.trim())) {
+       isActivityError.value = true;
+       activityMessage.value = 'Ingresa el comando esperado para el simulador.';
+       return;
+     }
    }
 
    isActivityLoading.value = true;
    try {
-     await api.createActivity(createdCourseId.value, createdModuleId.value, activity.value);
+     const payload = { ...activity.value };
+     
+     // Limpiar datos no necesarios según el tipo
+     if (payload.type === 'multiple_choice') {
+       payload.dragDropPairs = [];
+       payload.simulatorExpectedCommand = '';
+     } else if (payload.type === 'drag_drop') {
+       payload.options = [];
+       payload.simulatorExpectedCommand = '';
+     } else if (payload.type === 'simulator') {
+       payload.options = [];
+       payload.dragDropPairs = [];
+     }
+
+     await api.createActivity(createdCourseId.value, createdModuleId.value, payload);
      
      isActivityError.value = false;
-     activityMessage.value = 'Pregunta agregada con éxito.';
+     activityMessage.value = 'Actividad agregada con éxito.';
      
+     // Reiniciar formulario
      activity.value.question = '';
+     activity.value.simulatorExpectedCommand = '';
      activity.value.options.forEach(opt => opt.text = '');
+     activity.value.dragDropPairs.forEach(pair => { pair.draggable = ''; pair.target = ''; });
    } catch (error) {
      isActivityError.value = true;
-     activityMessage.value = 'Error al intentar guardar la pregunta.';
+     activityMessage.value = 'Error al intentar guardar la actividad.';
    } finally {
      isActivityLoading.value = false;
    }

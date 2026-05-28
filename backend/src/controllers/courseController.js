@@ -5,6 +5,16 @@ const Progress = require('../models/progress');
 const UserAchievement = require('../models/userAchievement');
 const { getAchievementById } = require('../utils/achievementsList');
 
+const getYoutubeEmbedUrl = (url) => {
+  if (!url) return null;
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+  const match = url.match(regExp);
+  if (match && match[2].length === 11) {
+    return `https://www.youtube.com/embed/${match[2]}`;
+  }
+  return url;
+};
+
 // Get all courses
 const getCourses = async (req, res) => {
   try {
@@ -91,7 +101,7 @@ const enrollStudent = async (req, res) => {
 const createModule = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, description, order, textContent, imageUrl, videoUrl } = req.body;
+    const { title, description, order, textContent, imageUrl, videoUrl, youtubeUrl } = req.body;
 
     if (!title || !description || order === undefined) {
       return res.status(400).json({ message: 'Title, description, and order are required' });
@@ -112,6 +122,9 @@ const createModule = async (req, res) => {
     }
     if (videoUrl) {
       contents.push({ type: 'video', title: 'Video Explicativo', videoUrl });
+    }
+    if (youtubeUrl) {
+      contents.push({ type: 'youtube', title: 'Video de YouTube', youtubeUrl: getYoutubeEmbedUrl(youtubeUrl) });
     }
 
     const newModule = {
@@ -138,16 +151,30 @@ const createModule = async (req, res) => {
 const createActivity = async (req, res) => {
   try {
     const { id, moduleId } = req.params;
-    const { question, difficulty, options } = req.body;
+    const { type, question, difficulty, options, dragDropPairs, simulatorExpectedCommand, simulatorMode } = req.body;
 
-    if (!question || !difficulty || !options || options.length < 2) {
-      return res.status(400).json({ message: 'Question, difficulty, and at least 2 options are required' });
+    if (!question || !difficulty) {
+      return res.status(400).json({ message: 'Question and difficulty are required' });
     }
 
-    // Verify there is exactly one correct option
-    const correctOptions = options.filter(opt => opt.isCorrect);
-    if (correctOptions.length !== 1) {
-      return res.status(400).json({ message: 'There must be exactly one correct option' });
+    const activityType = type || 'multiple_choice';
+
+    if (activityType === 'multiple_choice') {
+      if (!options || options.length < 2) {
+        return res.status(400).json({ message: 'At least 2 options are required for multiple choice' });
+      }
+      const correctOptions = options.filter(opt => opt.isCorrect);
+      if (correctOptions.length !== 1) {
+        return res.status(400).json({ message: 'There must be exactly one correct option' });
+      }
+    } else if (activityType === 'drag_drop') {
+      if (!dragDropPairs || dragDropPairs.length < 2) {
+        return res.status(400).json({ message: 'At least 2 drag and drop pairs are required' });
+      }
+    } else if (activityType === 'simulator') {
+      if (simulatorMode === 'exact_command' && !simulatorExpectedCommand) {
+        return res.status(400).json({ message: 'Simulator expected command is required for exact_command mode' });
+      }
     }
 
     const course = await Course.findById(id);
@@ -161,9 +188,13 @@ const createActivity = async (req, res) => {
     }
 
     const newActivity = {
+      type: activityType,
       question,
       difficulty,
-      options
+      options,
+      dragDropPairs,
+      simulatorMode,
+      simulatorExpectedCommand
     };
 
     module.activities.push(newActivity);
@@ -231,21 +262,47 @@ const evaluateModule = async (req, res) => {
     for (const answer of answers) {
       const activity = moduleDoc.activities.id(answer.activityId);
       if (activity) {
-        const option = activity.options.id(answer.optionId);
-        if (option) {
-          const isCorrect = option.isCorrect;
-          if (isCorrect) correctCount++;
-          
-          if (req.user && req.user.userId) {
-            resultsToSave.push({
-              user: req.user.userId,
-              course: id,
-              module: moduleId,
-              activity: answer.activityId,
-              option: answer.optionId,
-              isCorrect
-            });
+        let isCorrect = false;
+        let optionIdToSave = answer.optionId;
+
+        if (activity.type === 'drag_drop') {
+          isCorrect = answer.optionId === 'completed_drag_drop';
+        } else if (activity.type === 'simulator') {
+          isCorrect = answer.optionId === 'completed_simulator';
+        } else {
+          // Default multiple choice
+          // Note: using try catch or validating if it's a valid ObjectId helps avoid CastError
+          try {
+            const option = activity.options.id(answer.optionId);
+            if (option) {
+              isCorrect = option.isCorrect;
+            }
+          } catch(e) {
+            isCorrect = false;
           }
+        }
+        
+        if (isCorrect) correctCount++;
+        
+        if (req.user && req.user.userId) {
+          // Solo guardamos si tenemos un string de longitud 24 (ObjectId de mongo), 
+          // caso contrario podríamos romper el esquema de mongoose para ActivityResult.
+          // Para las prácticas, podemos simplemente guardar null si no es ObjectId,
+          // o dejarlo como string si el esquema lo soporta (si es ref: Option).
+          // El esquema 'activityResult' probablemente tenga 'option' referenciando un ObjectId.
+          let safeOptionId = optionIdToSave;
+          if (optionIdToSave.startsWith('completed_')) {
+             safeOptionId = null; // No hay 'opción' en la DB que referenciar
+          }
+
+          resultsToSave.push({
+            user: req.user.userId,
+            course: id,
+            module: moduleId,
+            activity: answer.activityId,
+            option: safeOptionId,
+            isCorrect
+          });
         }
       }
     }
@@ -267,27 +324,8 @@ const evaluateModule = async (req, res) => {
       await Progress.findOneAndUpdate(
         { user: req.user.userId, module: moduleId },
         { course: id, percentage, completed, lastUpdated: Date.now() },
-        { returnDocument: 'after', upsert: true }
+        { new: true, upsert: true }
       );
-
-      // ACHIEVEMENT ENGINE
-      // Check for 'perfect_module'
-      if (percentage === 100) {
-        const existing = await UserAchievement.findOne({ user: req.user.userId, achievementId: 'perfect_module' });
-        if (!existing) {
-          await new UserAchievement({ user: req.user.userId, achievementId: 'perfect_module' }).save();
-          unlockedAchievement = getAchievementById('perfect_module');
-        }
-      }
-      
-      // Check for 'first_module'
-      if (completed) {
-        const existing = await UserAchievement.findOne({ user: req.user.userId, achievementId: 'first_module' });
-        if (!existing) {
-          await new UserAchievement({ user: req.user.userId, achievementId: 'first_module' }).save();
-          unlockedAchievement = getAchievementById('first_module'); // Only one achievement returned in this simplified logic, could be an array if multiple
-        }
-      }
     }
 
     res.status(200).json({
@@ -340,7 +378,7 @@ const getModuleProgress = async (req, res) => {
     const progress = await Progress.findOneAndUpdate(
       { user: userId, module: moduleId },
       { course: id, percentage, completed, lastUpdated: Date.now() },
-      { returnDocument: 'after', upsert: true }
+      { new: true, upsert: true }
     );
 
     if (totalActivities === 0) {
@@ -373,16 +411,20 @@ const getTeacherStudents = async (req, res) => {
 
     // 3. For each enrollment, calculate progress
     const studentsData = await Promise.all(enrollments.map(async (enr) => {
-      // Find progress records for this student and course
-      const progresses = await Progress.find({ user: enr.student._id, course: enr.course._id });
-      
-      const totalModules = enr.course.modules.length;
+      let totalActivities = 0;
+      enr.course.modules.forEach(mod => {
+        if (mod.activities) totalActivities += mod.activities.length;
+      });
+
       let overallProgress = 0;
-      
-      if (totalModules > 0) {
-        // Promedio del porcentaje de todos los módulos del curso
-        const sumPercentage = progresses.reduce((acc, curr) => acc + curr.percentage, 0);
-        overallProgress = Math.round(sumPercentage / totalModules);
+      if (totalActivities > 0) {
+        const correctResults = await ActivityResult.find({
+          user: enr.student._id,
+          module: { $in: enr.course.modules.map(m => m._id) },
+          isCorrect: true
+        });
+        const uniqueCorrect = new Set(correctResults.map(r => r.activity.toString())).size;
+        overallProgress = Math.round((uniqueCorrect / totalActivities) * 100);
       }
 
       return {
@@ -431,14 +473,20 @@ const getCourseStudentsProgress = async (req, res) => {
       .populate('course', 'name modules');
 
     const studentsData = await Promise.all(enrollments.map(async (enr) => {
-      const progresses = await Progress.find({ user: enr.student._id, course: id });
-      
-      const totalModules = enr.course.modules.length;
+      let totalActivities = 0;
+      enr.course.modules.forEach(mod => {
+        if (mod.activities) totalActivities += mod.activities.length;
+      });
+
       let overallProgress = 0;
-      
-      if (totalModules > 0) {
-        const sumPercentage = progresses.reduce((acc, curr) => acc + curr.percentage, 0);
-        overallProgress = Math.round(sumPercentage / totalModules);
+      if (totalActivities > 0) {
+        const correctResults = await ActivityResult.find({
+          user: enr.student._id,
+          module: { $in: enr.course.modules.map(m => m._id) },
+          isCorrect: true
+        });
+        const uniqueCorrect = new Set(correctResults.map(r => r.activity.toString())).size;
+        overallProgress = Math.round((uniqueCorrect / totalActivities) * 100);
       }
 
       return {
@@ -514,7 +562,7 @@ const updateModule = async (req, res) => {
   try {
     const { id, moduleId } = req.params;
     const { userId } = req.user;
-    const { title, description, order, textContent, imageUrl, videoUrl } = req.body;
+    const { title, description, order, textContent, imageUrl, videoUrl, youtubeUrl } = req.body;
 
     const course = await Course.findOne({ _id: id, createdBy: userId });
     if (!course) return res.status(404).json({ message: 'Course not found or unauthorized' });
@@ -531,6 +579,7 @@ const updateModule = async (req, res) => {
     if (textContent) module.contents.push({ type: 'text', text: textContent });
     if (imageUrl) module.contents.push({ type: 'image', imageUrl });
     if (videoUrl) module.contents.push({ type: 'video', videoUrl });
+    if (youtubeUrl) module.contents.push({ type: 'youtube', youtubeUrl: getYoutubeEmbedUrl(youtubeUrl) });
 
     await course.save();
     res.status(200).json(module);

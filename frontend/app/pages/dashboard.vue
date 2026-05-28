@@ -3,7 +3,7 @@
     <!-- Header -->
     <header class="header flex justify-between items-center p-6 w-full max-w-6xl mx-auto">
       <NuxtLink to="/dashboard">
-        <img src="/logo-unicordoba.png" alt="Logo Universidad de Córdoba" class="header-logo">
+        <img src="/logo-git.png" alt="Git Logo" class="header-logo" style="max-height: 50px; width: auto;" />
       </NuxtLink>
       <div class="header-title text-xl font-medium text-gradient">
         <template v-if="role === 'teacher'">Panel del Docente</template>
@@ -128,7 +128,6 @@
             <h3 class="text-lg font-bold mb-4 border-b pb-2">Menú</h3>
             <nav class="flex flex-col gap-2">
               <button @click="activeTab = 'cursos'" :class="['menu-btn', activeTab === 'cursos' ? 'active' : '']">Mis Unidades</button>
-              <button @click="activeTab = 'logros'" :class="['menu-btn', activeTab === 'logros' ? 'active' : '']">Mis Logros</button>
             </nav>
           </div>
         </aside>
@@ -150,7 +149,7 @@
               <div v-else class="flex flex-col gap-4">
                 <div v-for="mod in course.modules" :key="mod._id" class="panel p-6 module-card">
                   <h3 class="text-xl font-bold mb-2">{{ mod.title }}</h3>
-                  <div v-if="role === 'student'" class="mb-5">
+                  <div v-if="role === 'student' && mod.activities && mod.activities.length > 0" class="mb-5">
                     <div class="flex justify-between text-xs font-bold mb-2">
                       <span class="text-secondary">PROGRESO</span>
                       <span class="text-[#ff6600]">{{ mod.progress || 0 }}%</span>
@@ -162,7 +161,9 @@
                   <p class="text-secondary mb-4 flex-grow">{{ mod.description }}</p>
                   <div class="flex justify-end items-center mt-auto pt-4 border-t border-[#30363d] gap-4">
                     <span class="badge whitespace-nowrap">Módulo {{ mod.order }}</span>
-                    <NuxtLink :to="`/course/${course._id}/module/${mod._id}`" class="btn-primary text-sm whitespace-nowrap flex-shrink-0">Ver Contenido</NuxtLink>
+                    <NuxtLink :to="`/course/${course._id}/module/${mod._id}`" class="btn-secondary text-sm whitespace-nowrap flex-shrink-0">Ver Lectura</NuxtLink>
+                    <NuxtLink v-if="mod.activities && mod.activities.length > 0 && (mod.progress || 0) < 100" :to="`/course/${course._id}/module/${mod._id}?phase=evaluation`" class="btn-primary text-sm whitespace-nowrap flex-shrink-0 bg-[#ff6600]">Resolver Actividad</NuxtLink>
+                    <NuxtLink v-else-if="mod.activities && mod.activities.length > 0 && (mod.progress || 0) === 100" :to="`/course/${course._id}/module/${mod._id}?phase=evaluation`" class="btn-primary text-sm whitespace-nowrap flex-shrink-0 bg-[#238636] hover:bg-[#2ea043]">Repasar Actividad</NuxtLink>
                   </div>
                 </div>
               </div>
@@ -172,31 +173,46 @@
                No hay unidades disponibles para mostrar.
             </div>
           </div>
-
-          <!-- Tab: Mis Logros -->
-          <div v-if="activeTab === 'logros' && role === 'student'">
-            <h2 class="text-2xl font-bold mb-6 pb-2 border-b">Mis Logros</h2>
-            <div v-if="achievementsList.length === 0" class="panel p-8 text-center text-secondary">
-              Aún no has desbloqueado ningún logro. ¡Completa los módulos para ganar medallas!
-            </div>
-            <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              <div v-for="ach in achievementsList" :key="ach.id" class="panel p-6 flex flex-col items-center text-center achievement-card">
-                <div class="text-6xl mb-4">{{ ach.icon }}</div>
-                <h3 class="text-lg font-bold mb-2">{{ ach.title }}</h3>
-                <p class="text-sm text-secondary">{{ ach.description }}</p>
-                <div class="mt-4 text-xs font-bold text-gray-400">
-                  Desbloqueado: {{ new Date(ach.unlockedAt).toLocaleDateString() }}
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </main>
 
     <!-- Footer -->
-    <footer class="footer-global w-full text-center">
-      <p>Diseño y Desarrollo de Software Educativo III<br />Departamento de Informática Educativa<br />Universidad de Córdoba<br />2026</p>
+    <footer class="footer-global" style="width: 100%; padding: 1.5rem 1rem; margin-top: auto; border-top: 1px solid #30363d; background-color: #0d1117; color: #8b949e; font-size: 0.85rem; line-height: 1.6;">
+      <div style="max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; align-items: start;">
+        
+        <!-- Columna 1: Logo -->
+        <div style="display: flex; justify-content: center; align-items: flex-start; padding-top: 0.25rem;">
+          <img src="/logo-unicordoba.png" alt="Logo Universidad de Córdoba" style="max-width: 80px; height: auto; opacity: 0.9;" />
+        </div>
+
+        <!-- Columna 2: Institución -->
+        <div style="text-align: left;">
+          <h4 style="color: #c9d1d9; font-weight: bold; margin-bottom: 0.5rem; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em;">Información Académica</h4>
+          <p style="margin: 0;">
+            Diseño y Desarrollo de Software Educativo III<br />
+            Departamento de Informática Educativa<br />
+            Licenciatura en Informática<br />
+            Facultad de Educación y Ciencias Humanas<br />
+            Universidad de Córdoba<br />
+            <span style="display: inline-block; margin-top: 0.25rem;"><strong>Año:</strong> 2026</span><br />
+            <strong>Metodología:</strong> MODESEC
+          </p>
+        </div>
+
+        <!-- Columna 3: Créditos -->
+        <div style="text-align: left;">
+          <h4 style="color: #c9d1d9; font-weight: bold; margin-bottom: 0.5rem; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em;">Equipo de Desarrollo</h4>
+          <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.25rem;">
+            <li><strong style="color: #e6edf3;">Mauro Andrés Monterroza Sevilla:</strong> Product Owner & Developer</li>
+            <li><strong style="color: #e6edf3;">Maria Claudia Oquendo Méndez:</strong> Lead UI Designer</li>
+            <li><strong style="color: #e6edf3;">Alexander Domínguez Niño:</strong> UX Designer & Developer</li>
+            <li><strong style="color: #e6edf3;">Isacar Torreglosa:</strong> Documentation</li>
+            <li><strong style="color: #e6edf3;">Ph.D. Raúl Emiro Toscano Miranda:</strong> Academic Tutor</li>
+          </ul>
+        </div>
+
+      </div>
     </footer>
   </div>
 </template>
@@ -217,8 +233,7 @@ const isEnrolled = ref(false); // Solo como referencia visual por ahora
 const enrolledCoursesList = ref([]);
 const teacherStudents = ref([]);
 const teacherCourses = ref([]);
-const achievementsList = ref([]);
-const activeTab = ref('cursos'); // For student 'cursos', 'logros'. For teacher 'estudiantes', 'mis-unidades'.
+const activeTab = ref('cursos'); // For student 'cursos'. For teacher 'estudiantes', 'mis-unidades'.
 
 onMounted(async () => {
   loading.value = true;
@@ -266,13 +281,6 @@ onMounted(async () => {
       }
       
       enrolledCoursesList.value = enrolled;
-      
-      // Obtener Logros
-      try {
-        achievementsList.value = await api.getAchievements();
-      } catch (err) {
-        console.error('Error obteniendo logros:', err);
-      }
     } else {
       // Invitado: Obtener todos los cursos del catálogo general
       const courses = await api.getCourses();

@@ -60,9 +60,7 @@ h1 { font-size: 3rem; font-weight: 900; }
 h2 { font-size: 2.25rem; font-weight: 700; }
 
 .text-gradient {
-  background: linear-gradient(90deg, #ffb347 0%, #ff6600 30%, #00d2ff 70%, #3a7bd5 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: #ff6600;
   display: inline-block;
 }
 
@@ -81,7 +79,7 @@ a:hover {
   background-color: var(--bg-color);
   border: 1px solid var(--border-color);
   color: var(--text-primary);
-  padding: 0.875rem 1.25rem;
+  padding: 0.5rem 0.75rem;
   border-radius: 6px;
   outline: none;
   font-family: inherit;
@@ -102,13 +100,13 @@ a:hover {
   background-color: var(--primary-color);
   color: white;
   border: none;
-  padding: 0.75rem 1.5rem;
+  padding: 0.5rem 1rem;
   border-radius: 6px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
   font-family: 'Inter', sans-serif;
-  font-size: 1rem;
+  font-size: 0.9rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -126,12 +124,13 @@ a:hover {
   background-color: var(--surface-color);
   color: var(--text-primary);
   border: 1px solid var(--border-color);
-  padding: 0.75rem 1.5rem;
+  padding: 0.5rem 1rem;
   border-radius: 6px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
   font-family: 'Inter', sans-serif;
+  font-size: 0.9rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
